@@ -1,0 +1,120 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:batch="http://www.springframework.org/schema/batch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-3.0.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+ 
+    <import resource="classpath:context-datasource.xml" />
+    
+    <bean id="configProperties" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+ 
+    	<property name="location" value="classpath:config.properties" />
+ 
+</bean>
+ 
+    <!-- JobRepository and JobLauncher are configuration/setup classes -->
+    <bean id="jobRepository"
+        class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean" />
+ 
+    <bean id="jobLauncher"
+        class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
+        <property name="jobRepository" ref="jobRepository" />
+    </bean>
+ 
+ 
+    <!-- ItemReader which reads from database and returns the row mapped by 
+        rowMapper -->
+    <bean id="databaseItemReader" class="org.springframework.batch.item.database.JdbcPagingItemReader" scope="step">
+		<property name="dataSource" ref="dataSource" />
+		<property name="queryProvider">
+			<bean class="org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean">
+				<property name="dataSource" ref="dataSource"/>
+				<property name="selectClause" value="select id,student_name, dob, percentage "/>
+				<property name="fromClause" value="from exam_result" />
+				<property name="whereClause" value="where id >= :startingIndex and id  &lt;= :endingIndex" />
+				<property name="sortKey" value="id"/>
+			</bean>
+		</property>
+		<property name="parameterValues">
+			<map>
+				<entry key="startingIndex" value="#{stepExecutionContext[fromId]}"/>
+				<entry key="endingIndex" value="#{stepExecutionContext[toId]}" />
+			</map>
+		</property>
+		<property name="pageSize" value="5"/>
+		<property name="rowMapper">
+			<bean class="com.websystique.springbatch.ExamResultRowMapper"/>
+		</property>
+	</bean>
+ 
+ 
+    <!-- ItemWriter writes a line into output flat file -->
+    <bean id="flatFileItemWriter" class="org.springframework.batch.item.file.FlatFileItemWriter"
+        scope="step">
+ 
+        <property name="resource" value="file:csv/outputs/users.processed#{stepExecutionContext[fromId]}-#{stepExecutionContext[toId]}.csv" />
+ 		<property name="shouldDeleteIfEmpty" value="true"/>
+        <property name="lineAggregator">
+ 
+            <!-- An Aggregator which converts an object into delimited list of strings -->
+            <bean
+                class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+ 
+                <property name="delimiter" value="," />
+
+                <property name="fieldExtractor">
+ 
+                    <!-- Extractor which returns the value of beans property through reflection -->
+                    <bean
+                        class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+                        <property name="names" value="studentName, percentage, dob" />
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+ 
+ 
+    <!-- Optional JobExecutionListener to perform business logic before and after the job -->
+    <bean id="jobListener" class="com.websystique.springbatch.ExamResultJobListener" />
+    
+    <bean id="stepListener" class="com.websystique.springbatch.StepListener" />
+ 
+    <!-- Optional ItemProcessor to perform business logic/filtering on the input records -->
+    <bean id="itemProcessor" class="com.websystique.springbatch.ExamResultItemProcessor" />
+ 
+    <!-- Step will need a transaction manager -->
+    <bean id="transactionManager"
+        class="org.springframework.batch.support.transaction.ResourcelessTransactionManager" />
+ 
+ 	<bean id="startbean" class="com.websystique.springbatch.Test"/>
+    <!-- Actual Job -->
+    <batch:job id="examResultJob">
+    <batch:step id="step1" next="masterstep">
+    	<batch:tasklet ref="startbean"/>
+        <batch:listeners>
+            <batch:listener ref="stepListener" />
+        </batch:listeners>
+    </batch:step>
+        <batch:step id="masterstep" allow-start-if-complete="true">
+        	<batch:partition  step="slave" partitioner="rangePartitioner">
+        		<batch:handler grid-size="${threadSize}" task-executor="taskExecutor"/>
+        	</batch:partition>
+        </batch:step>
+       
+    </batch:job>
+    
+	<batch:step id="slave">
+            <batch:tasklet transaction-manager="transactionManager" >
+                <batch:chunk reader="databaseItemReader" writer="flatFileItemWriter"
+                    processor="itemProcessor" commit-interval="10" />
+            </batch:tasklet>
+        <batch:listeners>
+            <batch:listener ref="jobListener" />
+        </batch:listeners>
+    </batch:step>
+     <bean id="rangePartitioner" class="com.mkyong.partition.RangePartitioner" />
+
+  <bean id="taskExecutor" class="org.springframework.core.task.SimpleAsyncTaskExecutor" />
+  
+ 
+</beans>          
