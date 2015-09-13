@@ -23,7 +23,7 @@ public class ResultItemWriter  implements ItemWriter<ExamResult>{
 	public void write(List<? extends ExamResult> results) throws Exception {
 		
 		List<Object[]> parameters = new ArrayList<Object[]>();
-		
+		System.out.println("to updated : "+results.size());
 		for (ExamResult result : results) {
 			System.out.println("updated : "+result.getDob());
 			//jdbcTemplate.update(INSERT_ORDER, order.getOrderNum(),order.getCustId(), order.getCountry());

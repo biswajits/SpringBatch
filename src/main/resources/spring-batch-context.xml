@@ -1,9 +1,13 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
     xmlns:batch="http://www.springframework.org/schema/batch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context" xmlns:task="http://www.springframework.org/schema/task"
     xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-3.0.xsd
-        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+    	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
  
     <import resource="classpath:context-model.xml"/>
+    <context:component-scan base-package="com.websystique.springbatch"/>
  
  
     <!-- JobRepository and JobLauncher are configuration/setup classes -->
@@ -70,5 +74,12 @@
             <batch:listener ref="jobListener" />
         </batch:listeners>
     </batch:job>
+    
+    <bean id="myScheduler" class="com.websystique.springbatch.MyScheduler"/>	
+	<!-- this is where we are scheduling the job to run using our scheduler every 5 secs, note how the method of the
+	     scheduler and the cron expression to be used are being specified -->
+	<task:scheduled-tasks>
+		<task:scheduled ref="myScheduler" method="run" cron="*/20 * * * * *"/>
+	</task:scheduled-tasks>	
  
 </beans>          
