@@ -10,10 +10,18 @@
     	<property name="location" value="classpath:config.properties" />
  
 </bean>
+ <bean id="jobExplorer"
+        class="org.springframework.batch.core.explore.support.JobExplorerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
  
     <!-- JobRepository and JobLauncher are configuration/setup classes -->
     <bean id="jobRepository"
-        class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean" />
+		class="org.springframework.batch.core.repository.support.JobRepositoryFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="transactionManager" ref="transactionManager" />
+		<property name="databaseType" value="mysql" />
+	</bean>
  
     <bean id="jobLauncher"
         class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
@@ -90,7 +98,7 @@
     <!-- Actual Job -->
     <batch:job id="examResultJob">
     <batch:step id="step1" next="masterstep">
-    	<batch:tasklet ref="startbean"/>
+    	<batch:tasklet ref="startbean" throttle-limit="1"/>
         <batch:listeners>
             <batch:listener ref="stepListener" />
         </batch:listeners>
@@ -104,7 +112,7 @@
     </batch:job>
     
 	<batch:step id="slave">
-            <batch:tasklet transaction-manager="transactionManager" >
+            <batch:tasklet transaction-manager="transactionManager" throttle-limit="1">
                 <batch:chunk reader="databaseItemReader" writer="flatFileItemWriter"
                     processor="itemProcessor" commit-interval="10" />
             </batch:tasklet>

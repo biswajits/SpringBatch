@@ -20,7 +20,12 @@ public class StepListener implements StepExecutionListener{
 		ExecutionContext jobExecutionContext = stepExecution.getJobExecution().getExecutionContext();
 
         jobExecutionContext.put("threadSize", 4);
-		
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 }
